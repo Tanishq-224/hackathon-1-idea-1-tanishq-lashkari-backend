@@ -1,21 +1,41 @@
 import type { CookieOptions, Response } from 'express';
 
-import { requiresCrossSiteAuthCookies } from '../config/clientOrigins.js';
+import {
+  clientOrigins,
+  isIturrietaVercelHost,
+  requiresCrossSiteAuthCookies,
+} from '../config/clientOrigins.js';
 import { env } from '../config/env.js';
 
 const ACCESS_COOKIE = 'iturrieta_access';
 const REFRESH_COOKIE = 'iturrieta_refresh';
 
 /**
+ * @description True when the public app is hosted on Vercel (same-origin `/api/v1` proxy).
+ * @returns {boolean} Whether auth cookies should use first-party SameSite=Lax.
+ */
+function usesVercelFrontendProxy(): boolean {
+  return clientOrigins.some((origin) => {
+    try {
+      return isIturrietaVercelHost(new URL(origin).hostname);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * @description Base cookie options for auth tokens.
  * @returns {CookieOptions} Cookie configuration.
  */
 function baseCookieOptions(): CookieOptions {
-  const crossSite = requiresCrossSiteAuthCookies();
+  const vercelProxy = usesVercelFrontendProxy();
+  const crossSite = !vercelProxy && requiresCrossSiteAuthCookies();
+  const sameSite = crossSite ? 'none' : 'lax';
   return {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: crossSite ? 'none' : 'lax',
+    secure: sameSite === 'none' || env.NODE_ENV === 'production' || vercelProxy,
+    sameSite,
     path: '/',
   };
 }
