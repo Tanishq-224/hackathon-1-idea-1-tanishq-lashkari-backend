@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { ZodType } from 'zod';
 
+import '../types/express.js';
 import { AppError } from '../utils/AppError.js';
+
+/** @description Request with Zod-validated query attached by {@link validateQuery}. */
+export type ValidatedQueryRequest<T> = Request & { validatedQuery: T };
 
 /**
  * @description Validates request body with a Zod schema.
@@ -32,7 +36,7 @@ export function validateQuery<T>(schema: ZodType<T>) {
       next(new AppError('Validation failed', 422));
       return;
     }
-    req.query = parsed.data as Request['query'];
+    req.validatedQuery = parsed.data;
     next();
   };
 }

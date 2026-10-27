@@ -26,6 +26,9 @@ import {
   lookupBookingSchema,
   updateStatusSchema,
 } from './booking.schemas.js';
+import type { z } from 'zod';
+
+type AvailabilityQuery = z.infer<typeof availabilityQuerySchema>;
 
 /** @description Public and staff booking routes. */
 export const bookingRouter = Router();
@@ -55,7 +58,7 @@ bookingRouter.get('/areas', async (_req, res, next) => {
  */
 bookingRouter.get('/availability', validateQuery(availabilityQuerySchema), async (req, res, next) => {
   try {
-    const data = await getAvailability(req.query as never);
+    const data = await getAvailability(req.validatedQuery as AvailabilityQuery);
     sendSuccess(res, 200, data);
   } catch (error) {
     next(error);
