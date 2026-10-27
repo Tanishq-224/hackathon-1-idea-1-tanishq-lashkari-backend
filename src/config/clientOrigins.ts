@@ -40,6 +40,41 @@ export function parseClientOrigins(clientUrlEnv: string): string[] {
 /** @description Allowed browser origins from validated environment. */
 export const clientOrigins = parseClientOrigins(env.CLIENT_URL);
 
+/** @description Vercel project hostname prefix for preview deployment origins. */
+const VERCEL_PROJECT_HOST_PREFIX = 'iturrieta-sagardotegia';
+
+/**
+ * @description Checks whether a hostname is this project's Vercel production or preview URL.
+ * @param {string} hostname - Host without port.
+ * @returns {boolean} True when host belongs to the Iturrieta Vercel project.
+ */
+export function isIturrietaVercelHost(hostname: string): boolean {
+  if (hostname === `${VERCEL_PROJECT_HOST_PREFIX}.vercel.app`) {
+    return true;
+  }
+  return hostname.startsWith(`${VERCEL_PROJECT_HOST_PREFIX}-`) && hostname.endsWith('.vercel.app');
+}
+
+/**
+ * @description Determines if a normalized origin may call the API with credentials.
+ * @param {string} normalizedOrigin - Scheme + host origin.
+ * @returns {boolean} Whether the origin is allowed.
+ */
+export function isAllowedClientOrigin(normalizedOrigin: string): boolean {
+  if (clientOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+  try {
+    const { hostname, protocol } = new URL(normalizedOrigin);
+    if (protocol !== 'https:' && protocol !== 'http:') {
+      return false;
+    }
+    return isIturrietaVercelHost(hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * @description Whether auth cookies must be sent cross-site (frontend host ≠ API host).
  * @returns {boolean} True when production uses cross-origin credentialed requests.
@@ -82,16 +117,16 @@ export function corsOriginDelegate(
   try {
     normalized = normalizeOrigin(origin);
   } catch {
-    callback(new Error('CORS: invalid Origin header'));
+    callback(null, false);
     return;
   }
 
-  if (clientOrigins.includes(normalized)) {
+  if (isAllowedClientOrigin(normalized)) {
     callback(null, normalized);
     return;
   }
 
-  callback(new Error(`CORS: origin not allowed: ${normalized}`));
+  callback(null, false);
 }
 
 /**

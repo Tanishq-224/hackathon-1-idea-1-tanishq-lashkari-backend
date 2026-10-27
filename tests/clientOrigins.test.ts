@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { clientOrigins, corsOriginDelegate, normalizeOrigin, parseClientOrigins } from '../src/config/clientOrigins.js';
+import {
+  clientOrigins,
+  corsOriginDelegate,
+  isAllowedClientOrigin,
+  isIturrietaVercelHost,
+  normalizeOrigin,
+  parseClientOrigins,
+} from '../src/config/clientOrigins.js';
 
 describe('clientOrigins', () => {
   it('parses comma-separated CLIENT_URL values', () => {
@@ -23,12 +30,20 @@ describe('clientOrigins', () => {
     expect(allowed).toBe(origin);
   });
 
-  it('rejects unknown origins', () => {
-    let error: Error | null = null;
-    corsOriginDelegate('https://evil.example', (err) => {
-      error = err;
+  it('rejects unknown origins without server errors', () => {
+    let allowed: boolean | string | undefined;
+    corsOriginDelegate('https://evil.example', (_err, value) => {
+      allowed = value;
     });
-    expect(error).toBeInstanceOf(Error);
+    expect(allowed).toBe(false);
+  });
+
+  it('allows Vercel preview hosts for the Iturrieta project', () => {
+    expect(isIturrietaVercelHost('iturrieta-sagardotegia.vercel.app')).toBe(true);
+    expect(isIturrietaVercelHost('iturrieta-sagardotegia-git-main.vercel.app')).toBe(true);
+    expect(
+      isAllowedClientOrigin('https://iturrieta-sagardotegia-git-main.vercel.app'),
+    ).toBe(true);
   });
 
   it('normalizes URLs with trailing paths', () => {
