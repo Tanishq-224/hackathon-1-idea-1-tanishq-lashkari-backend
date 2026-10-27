@@ -7,10 +7,6 @@ import { env } from './env.js';
  * @returns {Promise<void>}
  */
 export async function connectDatabase(): Promise<void> {
-  if (env.NODE_ENV === 'test') {
-    return;
-  }
-
   await mongoose.connect(env.MONGODB_URI);
 }
 

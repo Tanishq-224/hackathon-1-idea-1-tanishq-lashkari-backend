@@ -15,7 +15,20 @@ const swaggerDefinition = {
       description: 'Local development',
     },
   ],
-  tags: [{ name: 'Health', description: 'Service health and readiness' }],
+  tags: [
+    { name: 'Health', description: 'Service health and readiness' },
+    { name: 'Auth', description: 'Customer and staff authentication' },
+    { name: 'Booking', description: 'Reservations and staff operations' },
+  ],
+  components: {
+    securitySchemes: {
+      cookieAuth: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'iturrieta_access',
+      },
+    },
+  },
 };
 
 /**

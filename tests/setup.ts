@@ -1,4 +1,9 @@
 process.env.NODE_ENV = 'test';
-process.env.PORT = '4001';
-process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/iturrieta-test';
+process.env.PORT = '5001';
 process.env.CLIENT_URL = 'http://localhost:5173';
+process.env.EMAIL_MOCK = 'true';
+process.env.JWT_ACCESS_SECRET = 'test-access-secret-key-32chars-min!!';
+process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key-32chars-min!';
+process.env.OTP_EXPIRY_MINUTES = '10';
+process.env.OTP_RESEND_COOLDOWN_SECONDS = '1';
+process.env.OTP_MAX_ATTEMPTS = '5';

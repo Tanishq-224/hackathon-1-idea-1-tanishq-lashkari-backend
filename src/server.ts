@@ -1,10 +1,13 @@
 import 'dotenv/config';
 
-import type { Server } from 'node:http';
+import { createServer, type Server } from 'node:http';
 
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { env } from './config/env.js';
+import { runSeed } from './seed/runSeed.js';
+import { verifySmtpConfiguration } from './services/email.service.js';
+import { initSocketServer } from './socket/index.js';
 
 /** @description HTTP server instance for graceful shutdown. */
 let httpServer: Server | null = null;
@@ -68,13 +71,20 @@ function registerShutdownHooks(): void {
  */
 async function start(): Promise<void> {
   await connectDatabase();
+  await runSeed();
+
+  const smtp = await verifySmtpConfiguration();
+  console.info(`[email] ${smtp.message}`);
 
   const app = createApp();
-  httpServer = app.listen(env.PORT, () => {
+  httpServer = createServer(app);
+  initSocketServer(httpServer);
+  httpServer.listen(env.PORT, () => {
     console.info(
       `[server] Listening on http://localhost:${String(env.PORT)} (${env.NODE_ENV})`,
     );
     console.info(`[server] Swagger UI: http://localhost:${String(env.PORT)}/api-docs`);
+    console.info(`[server] OpenAPI JSON: http://localhost:${String(env.PORT)}/api-docs.json`);
   });
 
   registerShutdownHooks();
