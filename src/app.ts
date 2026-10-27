@@ -4,6 +4,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 
+import { buildCorsOptions } from './config/clientOrigins.js';
 import { buildOpenApiSpec } from './config/swagger.js';
 import { env } from './config/env.js';
 import { errorHandler } from './middlewares/errorHandler.js';
@@ -19,20 +20,17 @@ export function createApp(): Express {
 
   app.disable('x-powered-by');
 
+  if (env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   app.use(
     helmet({
       contentSecurityPolicy: env.NODE_ENV === 'production',
     }),
   );
 
-  app.use(
-    cors({
-      origin: env.CLIENT_URL,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-    }),
-  );
+  app.use(cors(buildCorsOptions()));
 
   app.use(cookieParser());
   app.use(express.json({ limit: '1mb' }));

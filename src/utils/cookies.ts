@@ -1,5 +1,6 @@
 import type { CookieOptions, Response } from 'express';
 
+import { requiresCrossSiteAuthCookies } from '../config/clientOrigins.js';
 import { env } from '../config/env.js';
 
 const ACCESS_COOKIE = 'iturrieta_access';
@@ -10,10 +11,11 @@ const REFRESH_COOKIE = 'iturrieta_refresh';
  * @returns {CookieOptions} Cookie configuration.
  */
 function baseCookieOptions(): CookieOptions {
+  const crossSite = requiresCrossSiteAuthCookies();
   return {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: crossSite ? 'none' : 'lax',
     path: '/',
   };
 }

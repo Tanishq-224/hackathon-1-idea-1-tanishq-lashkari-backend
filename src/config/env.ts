@@ -20,7 +20,29 @@ const envSchema = z
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.coerce.number().int().positive().default(5000),
     API_BASE_URL: z.string().url().optional(),
-    CLIENT_URL: z.string().url(),
+    CLIENT_URL: z
+      .string()
+      .min(1)
+      .refine(
+        (value) => {
+          const parts = value
+            .split(',')
+            .map((part) => part.trim())
+            .filter(Boolean);
+          return parts.every((part) => {
+            try {
+              const url = new URL(part);
+              return url.protocol === 'http:' || url.protocol === 'https:';
+            } catch {
+              return false;
+            }
+          });
+        },
+        {
+          message:
+            'CLIENT_URL must be one or more comma-separated http(s) URLs (e.g. production URL and http://localhost:5173 for local dev)',
+        },
+      ),
     MONGODB_URI: z.string().min(1),
 
     JWT_ACCESS_SECRET: z.string().min(32),

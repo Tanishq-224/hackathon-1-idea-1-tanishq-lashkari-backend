@@ -51,4 +51,12 @@ describe('Auth API', () => {
     expect(verify.body.success).toBe(true);
     expect(verify.body.data.user.email).toBe(email);
   });
+
+  it('returns 200 with null user when session cookies are absent', async () => {
+    const app = buildAuthApp();
+    const response = await request(app).get('/auth/me');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.user).toBeNull();
+  });
 });

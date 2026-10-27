@@ -18,9 +18,11 @@ import {
 import { sendSuccess } from '../../utils/apiResponse.js';
 import {
   clearAuthCookies,
+  getAccessCookieName,
   getRefreshCookieName,
   setAuthCookies,
 } from '../../utils/cookies.js';
+import { verifyAccessToken } from '../../utils/jwt.js';
 import {
   changePasswordSchema,
   forgotPasswordSchema,
@@ -155,10 +157,37 @@ authRouter.post('/refresh', async (req, res, next) => {
   }
 });
 
-authRouter.get('/me', authenticate, async (req: AuthenticatedRequest, res, next) => {
+authRouter.get('/me', async (req, res, next) => {
   try {
-    const user = await getCurrentUser(req.user!.id);
-    sendSuccess(res, 200, { user });
+    const accessToken = req.cookies?.[getAccessCookieName()] as string | undefined;
+    if (accessToken) {
+      try {
+        const payload = verifyAccessToken(accessToken);
+        const user = await getCurrentUser(payload.sub);
+        if (user) {
+          sendSuccess(res, 200, { user });
+          return;
+        }
+      } catch {
+        // Access token expired or invalid — try refresh below.
+      }
+    }
+
+    const refreshToken = req.cookies?.[getRefreshCookieName()] as string | undefined;
+    if (refreshToken) {
+      try {
+        const tokens = await refreshSession(refreshToken);
+        setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+        const payload = verifyAccessToken(tokens.accessToken);
+        const user = await getCurrentUser(payload.sub);
+        sendSuccess(res, 200, { user: user ?? null });
+        return;
+      } catch {
+        clearAuthCookies(res);
+      }
+    }
+
+    sendSuccess(res, 200, { user: null });
   } catch (error) {
     next(error);
   }
