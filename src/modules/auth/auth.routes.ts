@@ -4,6 +4,7 @@ import { authenticate, type AuthenticatedRequest } from '../../middlewares/authe
 import { authRateLimiter, otpRateLimiter } from '../../middlewares/rateLimiters.js';
 import { validateBody } from '../../middlewares/validate.js';
 import {
+  changePassword,
   forgotPassword,
   getCurrentUser,
   login,
@@ -21,6 +22,7 @@ import {
   setAuthCookies,
 } from '../../utils/cookies.js';
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   resendOtpSchema,
@@ -161,6 +163,25 @@ authRouter.get('/me', authenticate, async (req: AuthenticatedRequest, res, next)
     next(error);
   }
 });
+
+authRouter.post(
+  '/change-password',
+  authenticate,
+  authRateLimiter,
+  validateBody(changePasswordSchema),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const result = await changePassword({
+        userId: req.user!.id,
+        currentPassword: req.body.currentPassword,
+        newPassword: req.body.newPassword,
+      });
+      sendSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 authRouter.post(
   '/forgot-password',

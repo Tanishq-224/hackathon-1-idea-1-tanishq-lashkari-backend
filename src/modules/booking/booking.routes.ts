@@ -119,7 +119,7 @@ bookingRouter.get(
     try {
       const status = typeof req.query.status === 'string' ? req.query.status : undefined;
       const data = await listBookingsForStaff(
-        status as 'pending' | 'confirmed' | 'cancelled' | undefined,
+        status as 'pending' | 'confirmed' | 'cancellation_requested' | 'cancelled' | undefined,
       );
       sendSuccess(res, 200, data);
     } catch (error) {

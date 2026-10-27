@@ -75,6 +75,11 @@ async function start(): Promise<void> {
 
   const smtp = await verifySmtpConfiguration();
   console.info(`[email] ${smtp.message}`);
+  if (env.EMAIL_MOCK) {
+    console.info(
+      '[email] EMAIL_MOCK=true — booking & OTP emails print as [email:mock] in this terminal (no real inbox). Set EMAIL_MOCK=false and SMTP_* for Gmail delivery.',
+    );
+  }
 
   const app = createApp();
   httpServer = createServer(app);

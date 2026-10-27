@@ -249,6 +249,33 @@ export async function getCurrentUser(userId: string): Promise<PublicUser | null>
 }
 
 /**
+ * @description Updates password for a signed-in user after verifying the current one.
+ * @param {object} input - User id and password fields.
+ * @returns {Promise<{ message: string }>} Success message.
+ */
+export async function changePassword(input: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ message: string }> {
+  const policy = validatePasswordPolicy(input.newPassword);
+  if (!policy.valid) {
+    throw new AppError(policy.message ?? 'Invalid password', 422);
+  }
+  const user = await User.findById(input.userId).select('+passwordHash');
+  if (!user || !user.isActive) {
+    throw new AppError('Unauthorized', 401);
+  }
+  const matches = await verifyPassword(input.currentPassword, user.passwordHash);
+  if (!matches) {
+    throw new AppError('Current password is incorrect', 401);
+  }
+  user.passwordHash = await hashPassword(input.newPassword);
+  await user.save();
+  return { message: 'Password updated successfully.' };
+}
+
+/**
  * @description Starts password reset flow.
  * @param {string} email - Account email.
  * @returns {Promise<{ message: string }>} Generic message.

@@ -2,8 +2,22 @@ import mongoose from 'mongoose';
 
 import { Booking, type BookingDocument, type BookingStatus } from '../models/Booking.js';
 import { VenueConfig } from '../models/VenueConfig.js';
+import { sendBookingEmail } from './email.service.js';
 import { AppError } from '../utils/AppError.js';
 import { generateBookingReference } from '../utils/otp.js';
+
+const ACTIVE_TABLE_STATUSES: BookingStatus[] = ['pending', 'confirmed', 'cancellation_requested'];
+
+/**
+ * @description Queues a booking email without failing the API request.
+ * @param {Parameters<typeof sendBookingEmail>[0]} input - Email payload.
+ * @returns {void}
+ */
+function queueBookingEmail(input: Parameters<typeof sendBookingEmail>[0]): void {
+  void sendBookingEmail(input).catch((error: unknown) => {
+    console.error('[email] Booking email failed', error);
+  });
+}
 
 export type BookingDto = {
   reference: string;
@@ -91,7 +105,7 @@ export async function getAvailability(query: {
   const activeBookings = await Booking.find({
     date: query.date,
     time: query.time,
-    status: { $in: ['pending', 'confirmed'] },
+    status: { $in: ACTIVE_TABLE_STATUSES },
     areaId: query.areaId,
   }).select('tableId');
 
@@ -167,7 +181,18 @@ export async function createBooking(
       notes: input.notes?.trim() ?? '',
       status: 'pending',
     });
-    return toDto(created, true);
+    const dto = toDto(created, true);
+    queueBookingEmail({
+      to: dto.email,
+      kind: 'reservation_received',
+      guestName: dto.name,
+      reference: dto.reference,
+      date: dto.date,
+      time: dto.time,
+      guests: dto.guests,
+      tableName: dto.tableName,
+    });
+    return dto;
   } catch (error) {
     if (error instanceof mongoose.mongo.MongoServerError && error.code === 11000) {
       throw new AppError('This table was just reserved. Choose another table.', 409);
@@ -210,9 +235,23 @@ export async function cancelBookingByGuest(reference: string, email: string): Pr
   if (booking.status === 'cancelled') {
     return toDto(booking, true);
   }
-  booking.status = 'cancelled';
+  if (booking.status === 'cancellation_requested') {
+    return toDto(booking, true);
+  }
+  booking.status = 'cancellation_requested';
   await booking.save();
-  return toDto(booking, true);
+  const dto = toDto(booking, true);
+  queueBookingEmail({
+    to: dto.email,
+    kind: 'cancellation_requested',
+    guestName: dto.name,
+    reference: dto.reference,
+    date: dto.date,
+    time: dto.time,
+    guests: dto.guests,
+    tableName: dto.tableName,
+  });
+  return dto;
 }
 
 /**
@@ -240,9 +279,35 @@ export async function updateBookingStatusStaff(
   if (!booking) {
     throw new AppError('Booking not found', 404);
   }
+  const previousStatus = booking.status as BookingStatus;
   booking.status = status;
   await booking.save();
-  return toDto(booking, true);
+  const dto = toDto(booking, true);
+  if (status === 'confirmed' && previousStatus !== 'confirmed') {
+    queueBookingEmail({
+      to: dto.email,
+      kind: 'reservation_confirmed',
+      guestName: dto.name,
+      reference: dto.reference,
+      date: dto.date,
+      time: dto.time,
+      guests: dto.guests,
+      tableName: dto.tableName,
+    });
+  }
+  if (status === 'cancelled' && previousStatus !== 'cancelled') {
+    queueBookingEmail({
+      to: dto.email,
+      kind: 'cancellation_confirmed',
+      guestName: dto.name,
+      reference: dto.reference,
+      date: dto.date,
+      time: dto.time,
+      guests: dto.guests,
+      tableName: dto.tableName,
+    });
+  }
+  return dto;
 }
 
 /**
@@ -250,13 +315,14 @@ export async function updateBookingStatusStaff(
  * @returns {Promise<Record<string, number>>} Counts by status.
  */
 export async function getBookingStats(): Promise<Record<string, number>> {
-  const [pending, confirmed, cancelled, total] = await Promise.all([
+  const [pending, confirmed, cancellationRequested, cancelled, total] = await Promise.all([
     Booking.countDocuments({ status: 'pending' }),
     Booking.countDocuments({ status: 'confirmed' }),
+    Booking.countDocuments({ status: 'cancellation_requested' }),
     Booking.countDocuments({ status: 'cancelled' }),
     Booking.countDocuments({}),
   ]);
-  return { pending, confirmed, cancelled, total };
+  return { pending, confirmed, cancellationRequested, cancelled, total };
 }
 
 /**

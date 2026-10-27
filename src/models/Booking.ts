@@ -1,6 +1,11 @@
 import mongoose, { Schema, type InferSchemaType } from 'mongoose';
 
-export const BOOKING_STATUSES = ['pending', 'confirmed', 'cancelled'] as const;
+export const BOOKING_STATUSES = [
+  'pending',
+  'confirmed',
+  'cancellation_requested',
+  'cancelled',
+] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 const bookingSchema = new Schema(
@@ -28,7 +33,9 @@ bookingSchema.index(
   { tableId: 1, date: 1, time: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: { $in: ['pending', 'confirmed'] } },
+    partialFilterExpression: {
+      status: { $in: ['pending', 'confirmed', 'cancellation_requested'] },
+    },
   },
 );
 
